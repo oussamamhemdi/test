@@ -1,0 +1,31 @@
+name: CI
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build and start the stack
+        run: docker compose up -d --build
+
+      - name: Smoke test API
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8082/api/user/all; then
+              echo
+              echo "API OK"
+              exit 0
+            fi
+            echo "Waiting for the app ($i/30)..."
+            sleep 5
+          done
+          docker compose logs
+          exit 1
+
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
