@@ -1,30 +1,36 @@
-name: CI
+name: integration contenu (projet test)
 
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches: [main]
 
 jobs:
-  build-and-test:
+  Build_test_deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - name: Build and start the stack
-        run: docker compose up -d --build
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Smoke test API
+      - name: build frontend
         run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8082/api/user/all; then
-              echo
-              echo "API OK"
-              exit 0
-            fi
-            echo "Waiting for the app ($i/30)..."
-            sleep 5
-          done
-          docker compose logs
-          exit 1
+          docker build -t oussamamhemdi/angular angular-app
+          docker push oussamamhemdi/angular
+
+      - name: build artifact
+        run: |
+          cd springboot/app
+          chmod +x mvnw
+          ./mvnw clean package
+
+      - name: build backend
+        run: |
+          docker build -t oussamamhemdi/spring springboot/app
+          docker push oussamamhemdi/spring
 
       - name: Stop the stack
         if: always()
